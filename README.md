@@ -20,13 +20,19 @@ Outil en ligne de commande de cassage de mots de passe à partir de leur emprein
 
 ## 1. Introduction
 
-Dans le domaine de la cybersécurité, les mots de passe ne sont jamais stockés en clair : ils sont transformés par des fonctions de hachage cryptographiques (ici MD5). Vérifier la robustesse d'un mot de passe consiste souvent à essayer de retrouver le mot de passe original à partir de son hash — c'est l'objet de cet outil, `passwordCracker`.
+Dans le domaine de la cybersécurité, la vérification de la robustesse des mots de passe est une étape
+essentielle de tout audit de sécurité. Les mots de passe ne sont généralement jamais stockés en clair
+dans une base de données : ils sont transformés à l'aide de fonctions de hachage cryptographiques,
+comme MD5, afin de limiter les risques en cas de fuite de données.
 
-Ce mini-projet, réalisé dans le cadre du cours d'Ingénierie Logicielle à l'ESP/UCAD, avait pour objectif de mettre en pratique :
-- la conception orientée objet modulaire,
-- le polymorphisme,
-- le patron de création **Simple Factory**,
-- le développement d'une application console en Java.
+Ce mini-projet propose une première version d'un outil en ligne de commande, `passwordCracker`,
+capable de retrouver un mot de passe à partir de son empreinte MD5. Deux méthodes de cassage sont
+implémentées : une recherche par dictionnaire et une recherche par force brute.
+
+Au-delà de l'aspect fonctionnel, l'objectif pédagogique de ce projet est de mettre en pratique une
+architecture orientée objet modulaire, en s'appuyant sur le polymorphisme et sur le patron de
+conception créationnel **Simple Factory**, qui centralise la création des objets et découple le
+programme principal des classes concrètes.
 
 **Équipe projet :**
 
@@ -37,9 +43,31 @@ Ce mini-projet, réalisé dans le cadre du cours d'Ingénierie Logicielle à l'E
 | P3   | Aicha | Implémenter BruteForceHashCracker, intégrer le java.secruity.MD5, tester sur plusieurs hashes, rédiger les résultats |
 | P4  | Madina | Stratégie dictionnaire (`DictionaryHashCracker`), fichier dictionnaire, tests, dépôt GitHub, vidéo de démo, rédaction du README final |
 
----
 
 ## 2. Présentation du problème
+
+Retrouver un mot de passe à partir de son hash n'est possible que parce que les fonctions de hachage,
+bien que non réversibles mathématiquement, peuvent être attaquées par exploration de l'espace des
+mots de passe possibles : on recalcule le hash d'un grand nombre de candidats et on le compare au hash
+cible, jusqu'à trouver une correspondance.
+
+Deux grandes stratégies existent pour générer ces candidats, chacune avec ses avantages et ses
+limites :
+
+- **L'attaque par dictionnaire** teste une liste de mots existants (mots courants, mots de passe déjà
+  compromis, etc.). Elle est rapide et efficace contre les mots de passe faibles ou déjà connus, mais
+  elle échoue si le mot de passe ne figure pas dans la liste utilisée.
+- **L'attaque par force brute** génère systématiquement toutes les combinaisons possibles à partir
+  d'un alphabet donné (ici, les 26 lettres minuscules, jusqu'à 4 caractères). Elle garantit de trouver
+  le mot de passe s'il respecte les contraintes de longueur et d'alphabet, mais son coût augmente de
+  façon exponentielle avec la longueur du mot de passe.
+
+Le défi technique de ce projet n'est donc pas seulement de calculer des hashs, mais de concevoir une
+architecture capable d'accueillir plusieurs stratégies de cassage interchangeables, sans dupliquer de
+code et sans coupler le programme principal à une implémentation particulière. C'est précisément le
+problème que résout le patron **Simple Factory** : il centralise la logique de création des objets
+`HashCracker` dans une classe dédiée, `HashCrackerFactory`, à laquelle on demande une instance en
+passant simplement le nom de la méthode souhaitée (`"DICO"` ou `"BRUTE"`).
 
 Le programme `passwordCracker` reçoit en entrée :
 - une **méthode de cassage** : `BRUTE` (force brute) ou `DICO` (dictionnaire),
@@ -58,11 +86,6 @@ ou
 ```
 Password not found
 ```
-
-Deux stratégies de recherche sont implémentées :
-
-- **Cassage par dictionnaire** : le programme charge une liste de mots depuis un fichier (`resources/dictionary.txt`), calcule le hash MD5 de chaque mot et le compare au hash recherché.
-- **Cassage par force brute** : le programme génère toutes les combinaisons possibles de lettres minuscules (`a` à `z`) jusqu'à 4 caractères, et teste chacune.
 
 ---
 
