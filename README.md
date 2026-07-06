@@ -133,7 +133,7 @@ Cette architecture respecte les contraintes imposées : aucune duplication de co
 └────────────────────────────┘
 ```
 
-> Diagramme illustratif ci-dessus. La version détaillée (image exportée depuis draw.io / PlantUML) est disponible dans [`docs/uml-diagram.png`](docs/uml-diagram.png).
+> Diagramme illustratif ci-dessus. La version détaillée (image exportée depuis draw.io / PlantUML) est disponible dans [`docs/uml_diagram.svg`](docs/uml_diagram.svg).
 
 ---
 
