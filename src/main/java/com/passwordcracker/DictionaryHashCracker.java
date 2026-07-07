@@ -13,7 +13,7 @@ import java.nio.file.Paths;
  */
 public class DictionaryHashCracker implements HashCracker {
 
-    private static final String DEFAULT_DICTIONARY = "resources/dictionnaire.txt";
+    private static final String DEFAULT_DICTIONARY = "resources/dictionary.txt";
 
     private final String dictionaryPath;
     private int attempts;

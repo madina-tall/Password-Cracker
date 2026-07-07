@@ -10,6 +10,15 @@ Ce mini-projet consiste à développer un outil nommé **passwordCracker** capab
 
 L'objectif pédagogique principal est de mettre en œuvre une architecture modulaire basée sur le patron **Simple Factory**, combiné au polymorphisme via une interface commune `HashCracker`.
 
+**Équipe projet :**
+
+| Rôle | Membre | Responsabilité |
+|------|--------|-----------------|
+| P1 | Abdoulaye | Interface HashCracker, diagramme UML, responsabilités des classes |
+| P2 | Emilie | HashCrackerFactory, Main (CLI), sections Architecture/Usage Simple Factory |
+| P3 | Aïcha | BruteForceHashCracker, intégration MD5, tests, résultats |
+| P4 | Madina | DictionaryHashCracker, fichier dictionnaire, tests, dépôt GitHub, vidéo, README final |
+
 ---
 
 ## 2. Présentation du problème
@@ -78,7 +87,7 @@ La classe `HashCrackerFactory` est le seul point de création des stratégies. L
 ```
 Password-Cracker/
 ├── resources/
-│   └── dictionnaire.txt          # Fichier de mots pour la stratégie DICO
+│   └── dictionary.txt          # Fichier de mots pour la stratégie DICO
 ├── src/main/java/com/passwordcracker/
 │   ├── HashCracker.java          # Interface commune
 │   ├── DictionaryHashCracker.java
@@ -94,7 +103,7 @@ Password-Cracker/
 | Classe | Responsabilité |
 |--------|----------------|
 | `HashCracker` | Définit le contrat `crack(hash)` et `getAttempts()` |
-| `DictionaryHashCracker` | Charge `resources/dictionnaire.txt`, hash chaque mot, compare au hash cible |
+| `DictionaryHashCracker` | Charge `resources/dictionary.txt`, hash chaque mot, compare au hash cible |
 | `BruteForceHashCracker` | Génère toutes les combinaisons a-z (1 à 4 caractères) et teste chaque hash |
 | `HashCrackerFactory` | Crée l'instance appropriée selon la méthode (`BRUTE` ou `DICO`) |
 | `MD5Util` | Centralise le calcul MD5 (évite la duplication de code) |
@@ -148,6 +157,8 @@ classDiagram
     Main --> HashCracker : utilise
 ```
 
+> Version détaillée exportée disponible dans [`docs/uml_diagram.svg`](docs/uml_diagram.svg).
+
 ---
 
 ## 5. Usage du patron Simple Factory
@@ -175,7 +186,7 @@ public static HashCracker create(String method) {
 
 ### Fonctionnement de `DictionaryHashCracker`
 
-1. Ouvre le fichier `resources/dictionnaire.txt`
+1. Ouvre le fichier `resources/dictionary.txt`
 2. Pour chaque ligne (mot) :
    - Calcule le hash MD5 du mot via `MD5Util`
    - Compare au hash cible
@@ -225,7 +236,7 @@ java -cp out com.passwordcracker.Main -m DICO -h 0000000000000000000000000000000
 
 ## 7. Difficultés rencontrées
 
-- **Chemin du dictionnaire** : le fichier `resources/dictionnaire.txt` doit être accessible depuis le répertoire de travail courant lors de l'exécution. Il faut lancer le programme depuis la racine du projet.
+- **Chemin du dictionnaire** : le fichier `resources/dictionary.txt` doit être accessible depuis le répertoire de travail courant lors de l'exécution. Il faut lancer le programme depuis la racine du projet.
 - **Normalisation du hash** : les comparaisons sont effectuées en minuscules (`hash.toLowerCase()`) pour éviter les faux négatifs.
 - **Performance de la force brute** : avec 26^1 + 26^2 + 26^3 + 26^4 = 475 254 combinaisons, le mode BRUTE reste rapide pour des mots courts mais deviendrait impraticable avec des longueurs supérieures.
 - **Violation du Open/Closed** : l'ajout d'une nouvelle stratégie nécessite de modifier `HashCrackerFactory`, ce qui sera corrigé dans le mini-projet suivant.
@@ -275,8 +286,3 @@ Le code client (`Main`) n'a **pas** besoin d'être modifié grâce au polymorphi
 
 Comme indiqué dans le sujet, cette limitation sera corrigée dans le mini-projet suivant, probablement via un patron **Factory Method** ou un **registre dynamique** (Map de fournisseurs), permettant d'enregistrer de nouvelles stratégies sans modifier la fabrique existante.
 
----
-
-## Licence
-
-Projet académique – usage pédagogique uniquement.
