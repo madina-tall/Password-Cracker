@@ -6,9 +6,19 @@ Application Java de cassage de mots de passe MD5 implémentant le patron de conc
 
 ## 1. Introduction
 
-Ce mini-projet consiste à développer un outil nommé **passwordCracker** capable de retrouver un mot de passe à partir de son empreinte **MD5**. En cybersécurité, les mots de passe ne sont jamais stockés en clair : seul leur hash est conservé. Notre outil simule une attaque légitime de test de robustesse en tentant de retrouver le mot de passe original.
+Dans le domaine de la cybersécurité, la vérification de la robustesse des mots de passe est une étape
+essentielle de tout audit de sécurité. Les mots de passe ne sont généralement jamais stockés en clair
+dans une base de données : ils sont transformés à l'aide de fonctions de hachage cryptographiques,
+comme MD5, afin de limiter les risques en cas de fuite de données.
 
-L'objectif pédagogique principal est de mettre en œuvre une architecture modulaire basée sur le patron **Simple Factory**, combiné au polymorphisme via une interface commune `HashCracker`.
+Ce mini-projet propose une première version d'un outil en ligne de commande, `passwordCracker`,
+capable de retrouver un mot de passe à partir de son empreinte MD5. Deux méthodes de cassage sont
+implémentées : une recherche par dictionnaire et une recherche par force brute.
+
+Au-delà de l'aspect fonctionnel, l'objectif pédagogique de ce projet est de mettre en pratique une
+architecture orientée objet modulaire, en s'appuyant sur le polymorphisme et sur le patron de
+conception créationnel **Simple Factory**, qui centralise la création des objets et découple le
+programme principal des classes concrètes.
 
 **Équipe projet :**
 
@@ -113,51 +123,31 @@ Password-Cracker/
 
 ## 4. Diagramme UML
 
-```mermaid
-classDiagram
-    class HashCracker {
-        <<interface>>
-        +crack(hash: String): String
-        +getAttempts(): int
-    }
+```
+        ┌───────────────────────┐
+        │     HashCracker       │  <<interface>>
+        │-----------------------│
+        │ + crack(hash:String)  │
+        │        : String       │
+        └───────────▲───────────┘
+                    │
+        ┌───────────┴────────────┐
+        │                        │
+┌───────────────────┐  ┌──────────────────────┐
+│ DictionaryHashCracker│  │ BruteForceHashCracker│
+├───────────────────┤  ├──────────────────────┤
+│ + crack(hash)      │  │ + crack(hash)         │
+└───────────────────┘  └──────────────────────┘
 
-    class HashCrackerFactory {
-        +create(method: String)$ HashCracker
-    }
-
-    class DictionaryHashCracker {
-        -dictionaryPath: String
-        -attempts: int
-        +crack(hash: String): String
-        +getAttempts(): int
-    }
-
-    class BruteForceHashCracker {
-        -attempts: int
-        +crack(hash: String): String
-        +getAttempts(): int
-    }
-
-    class MD5Util {
-        +hash(input: String)$ String
-    }
-
-    class Main {
-        +main(args: String[]): void
-    }
-
-    HashCracker <|.. DictionaryHashCracker
-    HashCracker <|.. BruteForceHashCracker
-    HashCrackerFactory ..> HashCracker : crée
-    HashCrackerFactory ..> DictionaryHashCracker
-    HashCrackerFactory ..> BruteForceHashCracker
-    DictionaryHashCracker --> MD5Util : utilise
-    BruteForceHashCracker --> MD5Util : utilise
-    Main --> HashCrackerFactory : utilise
-    Main --> HashCracker : utilise
+┌────────────────────────────┐
+│    HashCrackerFactory      │
+├────────────────────────────┤
+│ + create(method:String)    │
+│        : HashCracker        │
+└────────────────────────────┘
 ```
 
-> Version détaillée exportée disponible dans [`docs/uml_diagram.svg`](docs/uml_diagram.svg).
+> Diagramme illustratif ci-dessus. La version détaillée (image exportée depuis draw.io / PlantUML) est disponible dans [`docs/uml_diagram.svg`](docs/uml_diagram.svg).
 
 ---
 
@@ -192,6 +182,33 @@ public static HashCracker create(String method) {
    - Compare au hash cible
    - Retourne le mot si correspondance trouvée
 3. Retourne `null` si aucun mot ne correspond
+Le patron **Simple Factory** centralise la logique de création des objets `HashCracker`, ce qui découple le code appelant (`Main`) des classes concrètes.
+
+```java
+public class HashCrackerFactory {
+    public static HashCracker create(String method) {
+        switch (method) {
+            case "DICO":
+                return new DictionaryHashCracker();
+            case "BRUTE":
+                return new BruteForceHashCracker();
+            default:
+                throw new IllegalArgumentException("Méthode inconnue : " + method);
+        }
+    }
+}
+```
+
+Utilisation dans `Main` :
+
+```java
+HashCracker cracker = HashCrackerFactory.create("DICO");
+String password = cracker.crack(hash);
+```
+
+Grâce au polymorphisme, `Main` ne connaît jamais `DictionaryHashCracker` ni `BruteForceHashCracker` directement : il manipule uniquement l'interface `HashCracker`.
+
+**Avantages / limites** (voir aussi Annexe) : la fabrique simplifie la création d'objets et isole le code client des implémentations concrètes, mais elle viole le principe *Open/Closed* : ajouter une nouvelle stratégie impose de modifier `HashCrackerFactory` (un `switch` supplémentaire). Cette limite sera corrigée dans le mini-projet suivant (probablement via une Factory Method ou une fabrique enregistrable).
 
 ---
 
@@ -286,3 +303,31 @@ Le code client (`Main`) n'a **pas** besoin d'être modifié grâce au polymorphi
 
 Comme indiqué dans le sujet, cette limitation sera corrigée dans le mini-projet suivant, probablement via un patron **Factory Method** ou un **registre dynamique** (Map de fournisseurs), permettant d'enregistrer de nouvelles stratégies sans modifier la fabrique existante.
 
+[À COMPLÉTER — bilan global : objectifs atteints, apprentissages sur le patron Simple Factory, pistes d'amélioration pour la v2 (respect du principe Open/Closed).]
+
+---
+
+## 9. Compilation et exécution
+
+### Prérequis
+- JDK 17 ou supérieur
+
+### Compilation
+```bash
+javac -d out src/main/java/com/Password-Cracker/*.java
+```
+
+### Exécution
+```bash
+java -cp out com.Password-Cracker.Main -m DICO -h e7247759c1633c0f9f1485f3690294a9
+java -cp out com.Password-Cracker.Main -m BRUTE -h e7247759c1633c0f9f1485f3690294a9
+```
+
+---
+
+## Annexe — Questions de réflexion
+
+1. **Quels avantages apporte la fabrique simple ?** [À COMPLÉTER]
+2. **Quels sont ses inconvénients ?** [À COMPLÉTER]
+3. **Que faut-il modifier lorsqu'une nouvelle stratégie est ajoutée ?** [À COMPLÉTER]
+4. **La fabrique respecte-t-elle le principe Open/Closed ?** [À COMPLÉTER]
