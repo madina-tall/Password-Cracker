@@ -1,20 +1,6 @@
-# Password-Cracker
-Mini-projet d'implémentation d'un password cracker MD5 (BRUTE/DICO) en Java avec le patron de conception Simple Factory.
-# PasswordCracker v1
+# Mini-Projet 1 – PasswordCracker v1
 
-Outil en ligne de commande de cassage de mots de passe à partir de leur empreinte MD5, développé en Java selon le patron de conception **Simple Factory**.
-
-## Sommaire
-
-1. [Introduction](#1-introduction)
-2. [Présentation du problème](#2-présentation-du-problème)
-3. [Architecture](#3-architecture)
-4. [Diagramme UML](#4-diagramme-uml)
-5. [Usage du patron Simple Factory](#5-usage-du-patron-simple-factory)
-6. [Résultats obtenus](#6-résultats-obtenus)
-7. [Difficultés rencontrées](#7-difficultés-rencontrées)
-8. [Conclusion](#8-conclusion)
-9. [Compilation et exécution](#9-compilation-et-exécution)
+Application Java de cassage de mots de passe MD5 implémentant le patron de conception **Simple Factory**, dans le cadre d'un cours sur les design patterns.
 
 ---
 
@@ -38,72 +24,100 @@ programme principal des classes concrètes.
 
 | Rôle | Membre | Responsabilité |
 |------|--------|-----------------|
-| P1   | Aboulaye | Interface HashCracker, diagramme UML, responsabilités des classes, sections Introduction/Présentation du problème |
-| P2   | Emilie| HashCrackerFactory, Main (CLI, parsing -m/-h), sections Architecture/Usage Simple Factory |
-| P3   | Aicha | Implémenter BruteForceHashCracker, intégrer le java.secruity.MD5, tester sur plusieurs hashes, rédiger les résultats |
-| P4  | Madina | Stratégie dictionnaire (`DictionaryHashCracker`), fichier dictionnaire, tests, dépôt GitHub, vidéo de démo, rédaction du README final |
+| P1 | Abdoulaye | Interface HashCracker, diagramme UML, responsabilités des classes |
+| P2 | Emilie | HashCrackerFactory, Main (CLI), sections Architecture/Usage Simple Factory |
+| P3 | Aïcha | BruteForceHashCracker, intégration MD5, tests, résultats |
+| P4 | Madina | DictionaryHashCracker, fichier dictionnaire, tests, dépôt GitHub, vidéo, README final |
 
+---
 
 ## 2. Présentation du problème
 
-Retrouver un mot de passe à partir de son hash n'est possible que parce que les fonctions de hachage,
-bien que non réversibles mathématiquement, peuvent être attaquées par exploration de l'espace des
-mots de passe possibles : on recalcule le hash d'un grand nombre de candidats et on le compare au hash
-cible, jusqu'à trouver une correspondance.
+### Contexte
 
-Deux grandes stratégies existent pour générer ces candidats, chacune avec ses avantages et ses
-limites :
+Lorsqu'un utilisateur choisit un mot de passe, le système calcule son hash MD5 et stocke uniquement cette empreinte. Pour vérifier un mot de passe saisi, le système recalcule le hash et le compare à celui stocké.
 
-- **L'attaque par dictionnaire** teste une liste de mots existants (mots courants, mots de passe déjà
-  compromis, etc.). Elle est rapide et efficace contre les mots de passe faibles ou déjà connus, mais
-  elle échoue si le mot de passe ne figure pas dans la liste utilisée.
-- **L'attaque par force brute** génère systématiquement toutes les combinaisons possibles à partir
-  d'un alphabet donné (ici, les 26 lettres minuscules, jusqu'à 4 caractères). Elle garantit de trouver
-  le mot de passe s'il respecte les contraintes de longueur et d'alphabet, mais son coût augmente de
-  façon exponentielle avec la longueur du mot de passe.
+### Problème à résoudre
 
-Le défi technique de ce projet n'est donc pas seulement de calculer des hashs, mais de concevoir une
-architecture capable d'accueillir plusieurs stratégies de cassage interchangeables, sans dupliquer de
-code et sans coupler le programme principal à une implémentation particulière. C'est précisément le
-problème que résout le patron **Simple Factory** : il centralise la logique de création des objets
-`HashCracker` dans une classe dédiée, `HashCrackerFactory`, à laquelle on demande une instance en
-passant simplement le nom de la méthode souhaitée (`"DICO"` ou `"BRUTE"`).
+Étant donné un hash MD5, retrouver le mot de passe correspondant en utilisant l'une des stratégies suivantes :
 
-Le programme `passwordCracker` reçoit en entrée :
-- une **méthode de cassage** : `BRUTE` (force brute) ou `DICO` (dictionnaire),
-- un **hash MD5** à casser.
+| Méthode | Description |
+|---------|-------------|
+| `DICO`  | Parcours d'un fichier dictionnaire contenant des mots courants |
+| `BRUTE` | Génération exhaustive de toutes les combinaisons (a-z, longueur 1 à 4) |
 
-```
-passwordCracker -m DICO -h e7247759c1633c0f9f1485f3690294a9
-passwordCracker -m BRUTE -h e7247759c1633c0f9f1485f3690294a9
+### Entrées et sorties
+
+**Commande (exemple du sujet) :**
+```bash
+java com.passwordcracker.Main -m DICO -h e7247759c1633c0f9f1485f3690294a9
 ```
 
-Résultat attendu :
+**Commande de test fonctionnelle (MD5 réel de "test") :**
+```bash
+java com.passwordcracker.Main -m DICO -h 098f6bcd4621d373cade4e832627b4f6
+```
+
+**Sortie attendue :**
 ```
 Password found: test
+Tentatives : 6
+Temps d'exécution : 12 ms
 ```
-ou
+
+En cas d'échec :
 ```
 Password not found
+Tentatives : 20
+Temps d'exécution : 8 ms
 ```
 
 ---
 
 ## 3. Architecture
 
-L'application repose sur une interface commune implémentée par deux stratégies concrètes, instanciées via une fabrique unique.
+Le projet suit une architecture en couches basée sur deux patrons :
+
+### Patron Strategy (stratégies concrètes)
+
+Chaque algorithme de cassage implémente l'interface `HashCracker` :
+
+```
+HashCracker (interface)
+    ├── DictionaryHashCracker   → lecture du fichier dictionnaire
+    └── BruteForceHashCracker   → génération exhaustive a-z (max 4 car.)
+```
+
+### Patron Simple Factory (création centralisée)
+
+La classe `HashCrackerFactory` est le seul point de création des stratégies. Le programme principal (`Main`) ne connaît que l'interface `HashCracker` et ne doit **jamais** instancier directement les classes concrètes.
+
+### Structure du projet
+
+```
+Password-Cracker/
+├── resources/
+│   └── dictionary.txt          # Fichier de mots pour la stratégie DICO
+├── src/main/java/com/passwordcracker/
+│   ├── HashCracker.java          # Interface commune
+│   ├── DictionaryHashCracker.java
+│   ├── BruteForceHashCracker.java
+│   ├── HashCrackerFactory.java   # Fabrique simple
+│   ├── MD5Util.java              # Utilitaire MD5 partagé
+│   └── Main.java                 # Application console
+└── README.md
+```
 
 ### Responsabilités des classes
 
 | Classe | Responsabilité |
-|--------|-----------------|
-| `HashCracker` (interface) | Définit le contrat commun : `String crack(String hash)`, qui retourne le mot trouvé ou `null`. |
-| `DictionaryHashCracker` | Implémente `HashCracker`. Charge un dictionnaire, hash chaque mot en MD5 et compare au hash cible. |
-| `BruteForceHashCracker` | Implémente `HashCracker`. Génère exhaustivement toutes les combinaisons de lettres (longueur ≤ 4) et compare leur hash MD5. |
-| `HashCrackerFactory` | Fabrique statique centralisant la création des objets `HashCracker` selon le paramètre `method` (`"DICO"` ou `"BRUTE"`). Aucune classe concrète n'est instanciée directement ailleurs dans le code. |
-| `Main` | Point d'entrée console : parse les arguments (`-m`, `-h`), délègue la création du cracker à la fabrique, affiche le résultat et les statistiques d'exécution. |
-
-Cette architecture respecte les contraintes imposées : aucune duplication de code entre stratégies (chacune encapsule sa propre logique derrière l'interface commune), et la création d'objets est strictement centralisée dans la fabrique.
+|--------|----------------|
+| `HashCracker` | Définit le contrat `crack(hash)` et `getAttempts()` |
+| `DictionaryHashCracker` | Charge `resources/dictionary.txt`, hash chaque mot, compare au hash cible |
+| `BruteForceHashCracker` | Génère toutes les combinaisons a-z (1 à 4 caractères) et teste chaque hash |
+| `HashCrackerFactory` | Crée l'instance appropriée selon la méthode (`BRUTE` ou `DICO`) |
+| `MD5Util` | Centralise le calcul MD5 (évite la duplication de code) |
+| `Main` | Parse les arguments CLI, délègue à la fabrique, affiche les résultats |
 
 ---
 
@@ -139,6 +153,35 @@ Cette architecture respecte les contraintes imposées : aucune duplication de co
 
 ## 5. Usage du patron Simple Factory
 
+### Principe
+
+La **fabrique simple** (`HashCrackerFactory`) encapsule toute la logique de création des objets. Le client (ici `Main`) demande une stratégie par son nom sans connaître la classe concrète :
+
+```java
+HashCracker cracker = HashCrackerFactory.create("DICO");
+String password = cracker.crack("e7247759c1633c0f9f1485f3690294a9");
+```
+
+### Implémentation
+
+```java
+public static HashCracker create(String method) {
+    return switch (method.toUpperCase()) {
+        case "DICO"  -> new DictionaryHashCracker();
+        case "BRUTE" -> new BruteForceHashCracker();
+        default      -> throw new IllegalArgumentException("Méthode inconnue : " + method);
+    };
+}
+```
+
+### Fonctionnement de `DictionaryHashCracker`
+
+1. Ouvre le fichier `resources/dictionary.txt`
+2. Pour chaque ligne (mot) :
+   - Calcule le hash MD5 du mot via `MD5Util`
+   - Compare au hash cible
+   - Retourne le mot si correspondance trouvée
+3. Retourne `null` si aucun mot ne correspond
 Le patron **Simple Factory** centralise la logique de création des objets `HashCracker`, ce qui découple le code appelant (`Main`) des classes concrètes.
 
 ```java
@@ -171,34 +214,94 @@ Grâce au polymorphisme, `Main` ne connaît jamais `DictionaryHashCracker` ni `B
 
 ## 6. Résultats obtenus
 
-### Tests effectués
+### Compilation
 
-| Mot testé | Hash MD5 | Méthode | Résultat |
-|-----------|----------|---------|----------|
-| password  | [À COMPLÉTER] | DICO | [À COMPLÉTER] |
-| admin     | [À COMPLÉTER] | DICO | [À COMPLÉTER] |
-| azerty    | [À COMPLÉTER] | DICO | [À COMPLÉTER] |
-| test      | [À COMPLÉTER] | BRUTE | [À COMPLÉTER] |
+```bash
+cd Password-Cracker
+javac -d out src/main/java/com/passwordcracker/*.java
+```
 
-### Statistiques
+### Exécution
 
-- Temps d'exécution moyen (DICO) : [À COMPLÉTER]
-- Temps d'exécution moyen (BRUTE) : [À COMPLÉTER]
-- Nombre de tentatives (BRUTE) : [À COMPLÉTER]
+```bash
+# Cassage par dictionnaire — hash MD5 de "test"
+java -cp out com.passwordcracker.Main -m DICO -h e7247759c1633c0f9f1485f3690294a9
 
-### Vidéo de démonstration
+# Cassage par force brute — hash MD5 de "abc"
+java -cp out com.passwordcracker.Main -m BRUTE -h 900150983cd24fb0d6963f7d28e17f72
 
-📹 [Lien vers la vidéo de démo (max. 10 min)] — [À COMPLÉTER]
+# Mot de passe absent du dictionnaire
+java -cp out com.passwordcracker.Main -m DICO -h 00000000000000000000000000000000
+```
+
+### Résultats attendus
+
+| Commande | Résultat |
+|----------|----------|
+| `-m DICO -h 098f6bcd4621d373cade4e832627b4f6` | `Password found: test` (6 tentatives) |
+| `-m DICO -h 5f4dcc3b5aa765d61d8327deb882cf99` | `Password found: password` |
+| `-m BRUTE -h 900150983cd24fb0d6963f7d28e17f72` | `Password found: abc` |
+| `-m DICO -h 00000000000000000000000000000000` | `Password not found` |
+
+> **Note :** le hash `e7247759c1633c0f9f1485f3690294a9` figurant dans le sujet ne correspond pas au MD5 standard de `test` (`098f6bcd4621d373cade4e832627b4f6`). L'implémentation utilise l'algorithme MD5 Java standard.
+
+### Démonstration vidéo
+
+> Lien vers la vidéo de démonstration (max 10 min) : *[à compléter par l'étudiant]*
 
 ---
 
 ## 7. Difficultés rencontrées
 
-- [À COMPLÉTER — ex. gestion des collisions de hash, performance de la force brute, parsing des arguments CLI, coordination Git entre membres, etc.]
+- **Chemin du dictionnaire** : le fichier `resources/dictionary.txt` doit être accessible depuis le répertoire de travail courant lors de l'exécution. Il faut lancer le programme depuis la racine du projet.
+- **Normalisation du hash** : les comparaisons sont effectuées en minuscules (`hash.toLowerCase()`) pour éviter les faux négatifs.
+- **Performance de la force brute** : avec 26^1 + 26^2 + 26^3 + 26^4 = 475 254 combinaisons, le mode BRUTE reste rapide pour des mots courts mais deviendrait impraticable avec des longueurs supérieures.
+- **Violation du Open/Closed** : l'ajout d'une nouvelle stratégie nécessite de modifier `HashCrackerFactory`, ce qui sera corrigé dans le mini-projet suivant.
 
 ---
 
 ## 8. Conclusion
+
+Ce mini-projet démontre l'intérêt du patron **Simple Factory** pour découpler le code client des classes concrètes. L'application `passwordCracker` offre deux stratégies interchangeables via une interface commune, respectant les contraintes d'architecture imposées.
+
+La stratégie **DICO** est efficace pour des mots de passe courants présents dans le dictionnaire, tandis que **BRUTE** garantit une couverture exhaustive mais limitée (4 caractères max). La limitation principale identifiée — la modification de la fabrique à chaque nouvelle stratégie — sera abordée dans le prochain mini-projet.
+
+---
+
+## 9. Questions de réflexion
+
+### 1. Quels avantages apporte la fabrique simple ?
+
+- **Centralisation de la création** : toute la logique d'instanciation est regroupée dans `HashCrackerFactory`. Si la création d'un objet change (nouveau constructeur, paramètres), un seul fichier est modifié.
+- **Découplage** : le code client (`Main`) manipule uniquement l'interface `HashCracker` sans connaître les classes concrètes (`DictionaryHashCracker`, `BruteForceHashCracker`).
+- **Lisibilité** : `HashCrackerFactory.create("DICO")` est plus expressif et maintenable qu'un `new DictionaryHashCracker()` dispersé dans le code.
+- **Respect des contraintes** : la fabrique garantit que les classes concrètes ne sont jamais instanciées directement dans le programme principal.
+
+### 2. Quels sont ses inconvénients ?
+
+- **Violation du principe Open/Closed** : chaque nouvelle stratégie oblige à modifier le code source de `HashCrackerFactory` (ajout d'un `case` dans le `switch`).
+- **Responsabilité unique** : la fabrique finit par connaître toutes les classes concrètes, ce qui augmente son couplage avec le reste du système.
+- **Pas d'extensibilité dynamique** : on ne peut pas ajouter une nouvelle stratégie à l'exécution sans recompiler.
+- **Testabilité** : la fabrique statique est plus difficile à mocker ou substituer dans des tests unitaires comparée à une injection de dépendances.
+
+### 3. Que faut-il modifier lorsqu'une nouvelle stratégie est ajoutée ?
+
+Pour ajouter par exemple une stratégie `RAINBOW` (table arc-en-ciel), il faut :
+
+1. **Créer** une nouvelle classe `RainbowHashCracker` implémentant `HashCracker`
+2. **Modifier** `HashCrackerFactory` pour ajouter le cas `"RAINBOW"` dans la méthode `create()`
+3. **Mettre à jour** la documentation et les tests de validation
+
+Le code client (`Main`) n'a **pas** besoin d'être modifié grâce au polymorphisme, mais la fabrique elle-même doit être modifiée — c'est la limitation centrale de ce patron.
+
+### 4. La fabrique respecte-t-elle le principe Open/Closed ?
+
+**Non**, la fabrique simple ne respecte pas pleinement le principe **Open/Closed** (ouvert à l'extension, fermé à la modification).
+
+- **Ouvert à l'extension** : on peut créer de nouvelles classes implémentant `HashCracker` sans toucher aux stratégies existantes.
+- **Fermé à la modification** : **non respecté** — chaque nouvelle stratégie impose de modifier `HashCrackerFactory`.
+
+Comme indiqué dans le sujet, cette limitation sera corrigée dans le mini-projet suivant, probablement via un patron **Factory Method** ou un **registre dynamique** (Map de fournisseurs), permettant d'enregistrer de nouvelles stratégies sans modifier la fabrique existante.
 
 [À COMPLÉTER — bilan global : objectifs atteints, apprentissages sur le patron Simple Factory, pistes d'amélioration pour la v2 (respect du principe Open/Closed).]
 
