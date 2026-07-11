@@ -1,8 +1,14 @@
 package com.passwordcracker;
 
 /**
- * Point d'entrée de l'application passwordCracker.
- * Usage : java com.passwordcracker.Main -m BRUTE|DICO -h <hash_md5>
+ * Application console PasswordCracker.
+ *
+ * Usage :
+ *   java com.passwordcracker.Main -m BRUTE -h e7247759c1633c0f9f1485f3690294a9
+ *   java com.passwordcracker.Main -m DICO  -h e7247759c1633c0f9f1485f3690294a9
+ *
+ * Main ne connaît que l'interface HashCracker : la création de l'objet
+ * concret est entièrement déléguée à HashCrackerFactory (patron Simple Factory).
  */
 public class Main {
 
@@ -10,41 +16,52 @@ public class Main {
         String method = null;
         String hash = null;
 
+        // --- Parsing simple des arguments de la ligne de commande ---
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
-                case "-m" -> {
+                case "-m":
                     if (i + 1 < args.length) {
                         method = args[++i];
                     }
-                }
-                case "-h" -> {
+                    break;
+                case "-h":
                     if (i + 1 < args.length) {
                         hash = args[++i];
                     }
-                }
-                default -> {
-                }
+                    break;
+                default:
+                    // argument inconnu, on l'ignore silencieusement
+                    break;
             }
         }
 
         if (method == null || hash == null) {
-            System.err.println("Usage : java com.passwordcracker.Main -m BRUTE|DICO -h <hash_md5>");
+            System.out.println("Usage : java com.passwordcracker.Main -m <BRUTE|DICO> -h <hashMD5>");
+            System.exit(1);
+            return;
+        }
+
+        try {
+            // --- Création de la stratégie via la fabrique simple ---
+            HashCracker cracker = HashCrackerFactory.create(method);
+
+            // --- Exécution + mesure du temps ---
+            long start = System.currentTimeMillis();
+            String result = cracker.crack(hash);
+            long elapsed = System.currentTimeMillis() - start;
+
+            // --- Affichage du résultat ---
+            if (result != null) {
+                System.out.println("Password found: " + result);
+            } else {
+                System.out.println("Password not found");
+            }
+
+            System.out.println("Temps d'exécution : " + elapsed + " ms");
+
+        } catch (IllegalArgumentException e) {
+            System.out.println("Erreur : " + e.getMessage());
             System.exit(1);
         }
-
-        HashCracker cracker = HashCrackerFactory.create(method);
-
-        long start = System.nanoTime();
-        String password = cracker.crack(hash);
-        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-
-        if (password != null) {
-            System.out.println("Password found: " + password);
-        } else {
-            System.out.println("Password not found");
-        }
-
-        System.out.println("Tentatives : " + cracker.getAttempts());
-        System.out.println("Temps d'exécution : " + elapsedMs + " ms");
     }
 }
