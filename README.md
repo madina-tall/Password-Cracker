@@ -61,16 +61,18 @@ java com.passwordcracker.Main -m DICO -h 098f6bcd4621d373cade4e832627b4f6
 **Sortie attendue :**
 ```
 Password found: test
-Tentatives : 6
+Nombre de tentatives : 6
 Temps d'exécution : 12 ms
 ```
 
 En cas d'échec :
 ```
 Password not found
-Tentatives : 20
+Nombre de tentatives : 20
 Temps d'exécution : 8 ms
 ```
+
+> **Note :** le hash `e7247759c1633c0f9f1485f3690294a9` figurant dans le sujet ne correspond pas au MD5 standard de `test` (`098f6bcd4621d373cade4e832627b4f6`). L'implémentation utilise l'algorithme MD5 Java standard.
 
 ---
 
@@ -91,6 +93,10 @@ HashCracker (interface)
 ### Patron Simple Factory (création centralisée)
 
 La classe `HashCrackerFactory` est le seul point de création des stratégies. Le programme principal (`Main`) ne connaît que l'interface `HashCracker` et ne doit **jamais** instancier directement les classes concrètes.
+
+### Choix de conception : la méthode `getAttempts()`
+
+Le sujet n'imposait pas explicitement de méthode pour compter les tentatives. Nous avons choisi d'ajouter `getAttempts()` à l'interface `HashCracker`, implémentée par les deux stratégies concrètes, car elle permet de **comparer objectivement les performances** de `DICO` et `BRUTE` (nombre d'essais nécessaires avant de trouver le mot de passe, ou avant d'épuiser toutes les possibilités). Ce choix illustre aussi concrètement l'intérêt du polymorphisme : `Main` appelle `cracker.getAttempts()` sans savoir quelle implémentation est utilisée.
 
 ### Structure du projet
 
@@ -129,6 +135,8 @@ Password-Cracker/
         │-----------------------│
         │ + crack(hash:String)  │
         │        : String       │
+        │ + getAttempts()       │
+        │        : int          │
         └───────────▲───────────┘
                     │
         ┌───────────┴────────────┐
@@ -137,6 +145,7 @@ Password-Cracker/
 │ DictionaryHashCracker│  │ BruteForceHashCracker│
 ├───────────────────┤  ├──────────────────────┤
 │ + crack(hash)      │  │ + crack(hash)         │
+│ + getAttempts()     │  │ + getAttempts()        │
 └───────────────────┘  └──────────────────────┘
 
 ┌────────────────────────────┐
@@ -165,35 +174,25 @@ String password = cracker.crack("e7247759c1633c0f9f1485f3690294a9");
 ### Implémentation
 
 ```java
-public static HashCracker create(String method) {
-    return switch (method.toUpperCase()) {
-        case "DICO"  -> new DictionaryHashCracker();
-        case "BRUTE" -> new BruteForceHashCracker();
-        default      -> throw new IllegalArgumentException("Méthode inconnue : " + method);
-    };
-}
-```
-
-### Fonctionnement de `DictionaryHashCracker`
-
-1. Ouvre le fichier `resources/dictionary.txt`
-2. Pour chaque ligne (mot) :
-   - Calcule le hash MD5 du mot via `MD5Util`
-   - Compare au hash cible
-   - Retourne le mot si correspondance trouvée
-3. Retourne `null` si aucun mot ne correspond
-Le patron **Simple Factory** centralise la logique de création des objets `HashCracker`, ce qui découple le code appelant (`Main`) des classes concrètes.
-
-```java
 public class HashCrackerFactory {
+
+    private HashCrackerFactory() {
+        // constructeur privé : classe utilitaire, pas d'instanciation
+    }
+
     public static HashCracker create(String method) {
-        switch (method) {
-            case "DICO":
-                return new DictionaryHashCracker();
+        if (method == null) {
+            throw new IllegalArgumentException("La méthode ne peut pas être null");
+        }
+
+        switch (method.toUpperCase()) {
             case "BRUTE":
                 return new BruteForceHashCracker();
+            case "DICO":
+                return new DictionaryHashCracker();
             default:
-                throw new IllegalArgumentException("Méthode inconnue : " + method);
+                throw new IllegalArgumentException(
+                        "Méthode inconnue : " + method + " (attendu : BRUTE ou DICO)");
         }
     }
 }
@@ -204,11 +203,23 @@ Utilisation dans `Main` :
 ```java
 HashCracker cracker = HashCrackerFactory.create("DICO");
 String password = cracker.crack(hash);
+System.out.println("Nombre de tentatives : " + cracker.getAttempts());
 ```
 
 Grâce au polymorphisme, `Main` ne connaît jamais `DictionaryHashCracker` ni `BruteForceHashCracker` directement : il manipule uniquement l'interface `HashCracker`.
 
-**Avantages / limites** (voir aussi Annexe) : la fabrique simplifie la création d'objets et isole le code client des implémentations concrètes, mais elle viole le principe *Open/Closed* : ajouter une nouvelle stratégie impose de modifier `HashCrackerFactory` (un `switch` supplémentaire). Cette limite sera corrigée dans le mini-projet suivant (probablement via une Factory Method ou une fabrique enregistrable).
+### Fonctionnement de `DictionaryHashCracker`
+
+1. Ouvre le fichier `resources/dictionary.txt`
+2. Pour chaque ligne (mot) :
+   - Calcule le hash MD5 du mot via `MD5Util`
+   - Compare au hash cible
+   - Retourne le mot si correspondance trouvée
+3. Retourne `null` si aucun mot ne correspond
+
+### Avantages / limites
+
+La fabrique simplifie la création d'objets et isole le code client des implémentations concrètes, mais elle viole le principe *Open/Closed* : ajouter une nouvelle stratégie impose de modifier `HashCrackerFactory` (un `switch` supplémentaire). Cette limite sera corrigée dans le mini-projet suivant (probablement via une Factory Method ou une fabrique enregistrable). Voir la section 9 pour le détail de cette analyse.
 
 ---
 
@@ -225,7 +236,7 @@ javac -d out src/main/java/com/passwordcracker/*.java
 
 ```bash
 # Cassage par dictionnaire — hash MD5 de "test"
-java -cp out com.passwordcracker.Main -m DICO -h e7247759c1633c0f9f1485f3690294a9
+java -cp out com.passwordcracker.Main -m DICO -h 098f6bcd4621d373cade4e832627b4f6
 
 # Cassage par force brute — hash MD5 de "abc"
 java -cp out com.passwordcracker.Main -m BRUTE -h 900150983cd24fb0d6963f7d28e17f72
@@ -243,8 +254,6 @@ java -cp out com.passwordcracker.Main -m DICO -h 0000000000000000000000000000000
 | `-m BRUTE -h 900150983cd24fb0d6963f7d28e17f72` | `Password found: abc` |
 | `-m DICO -h 00000000000000000000000000000000` | `Password not found` |
 
-> **Note :** le hash `e7247759c1633c0f9f1485f3690294a9` figurant dans le sujet ne correspond pas au MD5 standard de `test` (`098f6bcd4621d373cade4e832627b4f6`). L'implémentation utilise l'algorithme MD5 Java standard.
-
 ### Démonstration vidéo
 
 > Lien vers la vidéo de démonstration (max 10 min) : *[à compléter par l'étudiant]*
@@ -255,8 +264,9 @@ java -cp out com.passwordcracker.Main -m DICO -h 0000000000000000000000000000000
 
 - **Chemin du dictionnaire** : le fichier `resources/dictionary.txt` doit être accessible depuis le répertoire de travail courant lors de l'exécution. Il faut lancer le programme depuis la racine du projet.
 - **Normalisation du hash** : les comparaisons sont effectuées en minuscules (`hash.toLowerCase()`) pour éviter les faux négatifs.
-- **Performance de la force brute** : avec 26^1 + 26^2 + 26^3 + 26^4 = 475 254 combinaisons, le mode BRUTE reste rapide pour des mots courts mais deviendrait impraticable avec des longueurs supérieures.
+- **Performance de la force brute** : avec 26¹ + 26² + 26³ + 26⁴ = 475 254 combinaisons, le mode BRUTE reste rapide pour des mots courts mais deviendrait impraticable avec des longueurs supérieures.
 - **Violation du Open/Closed** : l'ajout d'une nouvelle stratégie nécessite de modifier `HashCrackerFactory`, ce qui sera corrigé dans le mini-projet suivant.
+- **Gestion des branches Git** : le travail en équipe (une branche par membre) a nécessité une vigilance particulière pour éviter les commits directs sur `main` et pour intégrer proprement les modifications croisées entre fichiers de différents membres.
 
 ---
 
@@ -303,31 +313,6 @@ Le code client (`Main`) n'a **pas** besoin d'être modifié grâce au polymorphi
 
 Comme indiqué dans le sujet, cette limitation sera corrigée dans le mini-projet suivant, probablement via un patron **Factory Method** ou un **registre dynamique** (Map de fournisseurs), permettant d'enregistrer de nouvelles stratégies sans modifier la fabrique existante.
 
-[À COMPLÉTER — bilan global : objectifs atteints, apprentissages sur le patron Simple Factory, pistes d'amélioration pour la v2 (respect du principe Open/Closed).]
+### Bilan global
 
----
-
-## 9. Compilation et exécution
-
-### Prérequis
-- JDK 17 ou supérieur
-
-### Compilation
-```bash
-javac -d out src/main/java/com/Password-Cracker/*.java
-```
-
-### Exécution
-```bash
-java -cp out com.Password-Cracker.Main -m DICO -h e7247759c1633c0f9f1485f3690294a9
-java -cp out com.Password-Cracker.Main -m BRUTE -h e7247759c1633c0f9f1485f3690294a9
-```
-
----
-
-## Annexe — Questions de réflexion
-
-1. **Quels avantages apporte la fabrique simple ?** [À COMPLÉTER]
-2. **Quels sont ses inconvénients ?** [À COMPLÉTER]
-3. **Que faut-il modifier lorsqu'une nouvelle stratégie est ajoutée ?** [À COMPLÉTER]
-4. **La fabrique respecte-t-elle le principe Open/Closed ?** [À COMPLÉTER]
+Ce premier mini-projet nous a permis de mettre en pratique concrètement le patron **Simple Factory** et de comprendre ses avantages (découplage, centralisation) mais aussi ses limites (violation du principe Open/Closed). Le travail en équipe sur GitHub, avec une branche dédiée par membre, nous a aussi confrontés aux réalités du développement collaboratif : gestion des conflits, discipline de branchement, revue croisée du code. Pour la v2, nous envisageons de remplacer la fabrique simple par une **Factory Method** ou un **registre de stratégies**, afin de pouvoir ajouter de nouvelles méthodes de cassage sans modifier le code existant.
